@@ -14,27 +14,18 @@ import os
 # 배포 환경에서는 환경변수로 제어 (기본 False)
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 
-# ALLOWED_HOSTS/CORS/CSRF는 배포 도메인에 맞춰 환경변수로 설정 가능
-ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if h]
+# MVP 단계이므로 모든 Origin 허용
+ALLOWED_HOSTS = ["*"]
 
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
-CORS_ALLOWED_ORIGINS = [o for o in os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    (
-        "http://localhost:3000,"
-        "http://127.0.0.1:3000,"
-        "http://localhost:5173,"
-        "http://127.0.0.1:5173,"
-        "http://localhost:5174,"
-        "http://127.0.0.1:5174"
-    )
-).split(",") if o]
+# 모든 Origin에서의 CORS 요청 허용 (MVP 전용)
+CORS_ALLOW_ALL_ORIGINS = True
 
-# CSRF 신뢰 도메인 (https 스킴 포함 필요)
-CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+# CSRF 토큰 검증 비활성화 (MVP 전용 - 프로덕션에서는 절대 사용 금지)
+CSRF_TRUSTED_ORIGINS = ["*"]
 
 
 # Supabase(PostgreSQL) 데이터베이스 설정
