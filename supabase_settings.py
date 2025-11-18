@@ -23,7 +23,14 @@ INTERNAL_IPS = [
 
 CORS_ALLOWED_ORIGINS = [o for o in os.getenv(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+    (
+        "http://localhost:3000,"
+        "http://127.0.0.1:3000,"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "http://localhost:5174,"
+        "http://127.0.0.1:5174"
+    )
 ).split(",") if o]
 
 # CSRF 신뢰 도메인 (https 스킴 포함 필요)

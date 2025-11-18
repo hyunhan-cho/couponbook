@@ -37,6 +37,31 @@ def _load_locations() -> dict:
         return {}
 
 
+@extend_schema(
+    tags=["Locations"],
+    summary="법정동 위치 데이터 조회",
+    description=
+        """
+        - GET /api/locations/ → 전체 트리(JSON)
+        - GET /api/locations/?province=서울특별시 → 해당 시/도의 시/군/구 목록(문자열 배열)
+        - GET /api/locations/?province=서울특별시&city=종로구 → 해당 시/군/구의 읍/면/동 목록(문자열 배열)
+        """,
+    parameters=[
+        OpenApiParameter(
+            name="province",
+            type=str,
+            required=False,
+            description="시/도 이름 (예: 서울특별시, 경기도)",
+        ),
+        OpenApiParameter(
+            name="city",
+            type=str,
+            required=False,
+            description="시/군/구 이름 (예: 종로구, 성남시)",
+        ),
+    ],
+    responses={200: OpenApiTypes.ANY},  # 전체 트리(Object) 또는 문자열 배열(Array) 반환
+)
 class LocationListAPIView(APIView):
     """
     위치 데이터 조회용 엔드포인트

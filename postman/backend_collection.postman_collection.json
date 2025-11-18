@@ -1,0 +1,94 @@
+{
+  "info": {
+    "_postman_id": "b5c2a5d9-25e0-4f78-96fd-0b3d5e7fce11",
+    "name": "Couponbook Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for login and locations APIs"
+  },
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/accounts/auth/login/",
+          "host": ["{{baseUrl}}"],
+          "path": ["accounts", "auth", "login", ""]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"alice\",\n  \"password\": \"P@ssw0rd!\"\n}"
+        },
+        "description": "Logs in using identifier(username/email) + password. Returns access/refresh."
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Me",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/accounts/auth/me/",
+          "host": ["{{baseUrl}}"],
+          "path": ["accounts", "auth", "me", ""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Locations - All",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/locations/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "locations", ""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Locations - By Province",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/locations/?province={{province}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "locations", ""],
+          "query": [
+            {"key": "province", "value": "{{province}}"}
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Locations - By City",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/locations/?province={{province}}&city={{city}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "locations", ""],
+          "query": [
+            {"key": "province", "value": "{{province}}"},
+            {"key": "city", "value": "{{city}}"}
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://port-0-couponbook-mi41xmxo46808c9c.sel3.cloudtype.app" },
+    { "key": "accessToken", "value": "" },
+    { "key": "province", "value": "서울특별시" },
+    { "key": "city", "value": "종로구" }
+  ]
+}
