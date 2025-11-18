@@ -24,8 +24,9 @@ INTERNAL_IPS = [
 # 모든 Origin에서의 CORS 요청 허용 (MVP 전용)
 CORS_ALLOW_ALL_ORIGINS = True
 
-# CSRF 토큰 검증 비활성화 (MVP 전용 - 프로덕션에서는 절대 사용 금지)
-CSRF_TRUSTED_ORIGINS = ["*"]
+# CSRF 토큰 검증은 CORS_ALLOW_ALL_ORIGINS=True일 때 자동으로 완화됨
+# Django는 스키마가 필요하므로 빈 리스트로 설정
+CSRF_TRUSTED_ORIGINS = []
 
 
 # Supabase(PostgreSQL) 데이터베이스 설정
