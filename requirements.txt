@@ -25,6 +25,9 @@ djangorestframework-simplejwt>=5.3
 django-cors-headers>=4.4
 whitenoise>=6.7
 
+# 필터링용
+django-filter>=24.0
+
 # PostgreSQL driver for Supabase
 psycopg2-binary>=2.9
 google-genai>=1.29.0
