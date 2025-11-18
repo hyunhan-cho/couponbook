@@ -50,7 +50,15 @@ class StampCreateRequestSerializer(serializers.ModelSerializer):
 
         # 1. 영수증 번호가 등록되어 있는 영수증인지 확인합니다.
         if not receipt:
-            raise serializers.ValidationError("DB에 등록되지 않은 영수증 번호입니다.")
+            # MVP 단계에서는 특정 테스트 번호(superhyunhan)를 항상 허용합니다.
+            # 프론트에서 {"receipt": "superhyunhan"} 으로 보내면,
+            # Receipt 인스턴스를 자동 생성해서 스탬프를 적립할 수 있습니다.
+            raw_value = (self.initial_data or {}).get("receipt")
+            if raw_value == "superhyunhan":
+                receipt, _ = Receipt.objects.get_or_create(receipt_number=raw_value)
+                attrs["receipt"] = receipt
+            else:
+                raise serializers.ValidationError("DB에 등록되지 않은 영수증 번호입니다.")
         
         # 2. 영수증 번호에 해당하는 스탬프가 이미 등록되어 있는지 확인합니다.
         if hasattr(receipt, "stamp"):
