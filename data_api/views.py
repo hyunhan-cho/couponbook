@@ -21,6 +21,18 @@ from functools import lru_cache
 # locations.json 경로 (create_locations.py가 저장하는 위치와 동일)
 LOC_FILE = Path(settings.BASE_DIR) / "modelproject" / "data" / "locations.json"
 
+# 파일이 없을 때 최소한으로라도 내려줄 기본 위치 데이터
+DEFAULT_LOCATIONS = {
+    "서울특별시": {
+        "종로구": ["청운동", "사직동", "평창동"],
+        "중구": ["소공동", "회현동", "명동"],
+    },
+    "경기도": {
+        "성남시": ["분당구", "수정구", "중원구"],
+        "수원시": ["장안구", "권선구", "팔달구", "영통구"],
+    },
+}
+
 
 @lru_cache(maxsize=1)
 def _load_locations() -> dict:
@@ -30,11 +42,20 @@ def _load_locations() -> dict:
     """
     try:
         with LOC_FILE.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except json.JSONDecodeError:
-        return {}
+            data = json.load(f)
+            # 비어 있는 dict면 의미 있는 데이터가 아니라고 보고 기본값 사용
+            if data:
+                return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        # 아래에서 기본 데이터를 생성하도록 진행
+        pass
+
+    # 여기까지 왔다는 것은 파일이 없거나 손상된 상태이므로
+    # 기본 데이터를 파일로 생성한 뒤 반환한다.
+    LOC_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LOC_FILE.open("w", encoding="utf-8") as f:
+        json.dump(DEFAULT_LOCATIONS, f, ensure_ascii=False, indent=2)
+    return DEFAULT_LOCATIONS
 
 
 @extend_schema(
@@ -71,12 +92,6 @@ class LocationListAPIView(APIView):
 
     def get(self, request):
         data = _load_locations()
-        if not data:
-            return Response(
-                {"detail": "locations.json not found or invalid", "path": str(LOC_FILE)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
         province = request.query_params.get("province")
         city = request.query_params.get("city")
 
