@@ -1,4 +1,5 @@
 from django.utils.timezone import now
+from uuid import uuid4
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (OpenApiExample, extend_schema_field,
                                    extend_schema_serializer)
@@ -57,9 +58,11 @@ class StampCreateRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("DB에 등록되지 않은 영수증 번호입니다.")
 
         if raw_value == "superhyunhan":
-            # MVP 단계: superhyunhan 이라는 번호는 항상 허용하고,
-            # Receipt가 없으면 자동 생성합니다.
-            receipt, _ = Receipt.objects.get_or_create(receipt_number=raw_value)
+            # MVP 단계: superhyunhan 번호는 호출할 때마다 새로운 Receipt를 생성해서
+            # 같은 번호를 여러 번 입력해도 스탬프가 계속 쌓이도록 합니다.
+            receipt = Receipt.objects.create(
+                receipt_number=f"superhyunhan-{uuid4().hex}"
+            )
         else:
             # 그 외 번호는 실제 DB에 Receipt 가 존재해야 합니다.
             try:
