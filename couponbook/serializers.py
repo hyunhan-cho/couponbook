@@ -73,7 +73,11 @@ class StampCreateRequestSerializer(serializers.ModelSerializer):
         attrs["receipt"] = receipt
 
         # 2. 영수증 번호에 해당하는 스탬프가 이미 등록되어 있는지 확인합니다.
-        if hasattr(receipt, "stamp"):
+        # superhyunhan* 로 시작하는 테스트용 영수증은 중복 체크를 건너뛰어
+        # 같은 번호를 여러 번 입력해도 스탬프가 계속 쌓이도록 합니다.
+        if hasattr(receipt, "stamp") and not str(receipt.receipt_number).startswith(
+            "superhyunhan"
+        ):
             raise serializers.ValidationError("이미 스탬프가 발급된 영수증 번호입니다.")
 
         return super().validate(attrs)
