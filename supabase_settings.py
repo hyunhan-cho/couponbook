@@ -15,7 +15,7 @@ import os
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 
 # ALLOWED_HOSTS/CORS/CSRF는 배포 도메인에 맞춰 환경변수로 설정 가능
-ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h]
+ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if h]
 
 INTERNAL_IPS = [
     "127.0.0.1",

@@ -286,10 +286,20 @@ class CouponTemplateListSerializer(serializers.ModelSerializer):
         """
         이미 해당 쿠폰 템플릿으로 생성한 쿠폰을 보유하고 있는지의 여부입니다.
         """
-        if hasattr(obj, 'coupons'):
-            return obj.coupons.filter(couponbook__user=self.context['request'].user).exists()
-        
-        return False # 이 쿠폰 템플릿으로 생성된 쿠폰이 없으므로 무조건 거짓일 수 밖에 없음
+        # context 에 request 가 없거나, request.user 가 없는 특수 상황(테스트 스크립트, 미들웨어 미적용 등)을
+        # 안전하게 처리하기 위해 방어 코드를 추가합니다.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
+        # 비로그인 / 사용자 정보 없으면 무조건 False
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+
+        if hasattr(obj, "coupons"):
+            return obj.coupons.filter(couponbook__user=user).exists()
+
+        # 이 쿠폰 템플릿으로 생성된 쿠폰이 없으므로 무조건 거짓
+        return False
     
     class Meta:
         model = CouponTemplate
