@@ -21,8 +21,12 @@ TIME_FORMAT = "%H:%M"  # 기본 time 출력 포맷
 )
 class StampCreateRequestSerializer(serializers.ModelSerializer):
     """
-    스탬프를 생성(적립)하는 데에 사용되는 시리얼라이저입니다. 입력받은 영수증 번호를 바탕으로 스탬프를 생성합니다.
+    스탬프를 생성(적립)하는 데에 사용되는 시리얼라이저입니다.
+    입력받은 영수증 번호를 바탕으로 스탬프를 생성합니다.
     """
+
+    # 기본 PrimaryKeyRelatedField 대신 문자열 번호를 직접 처리하기 위해 CharField 사용
+    receipt = serializers.CharField(write_only=True)
 
     def validate(self, attrs) -> dict:
         """
@@ -46,20 +50,25 @@ class StampCreateRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("쿠폰의 유효기간이 지났습니다.")
 
         # 영수증 확인
-        receipt = attrs.get("receipt")
+        raw_value = attrs.get("receipt")
 
-        # 1. 영수증 번호가 등록되어 있는 영수증인지 확인합니다.
-        if not receipt:
-            # MVP 단계에서는 특정 테스트 번호(superhyunhan)를 항상 허용합니다.
-            # 프론트에서 {"receipt": "superhyunhan"} 으로 보내면,
-            # Receipt 인스턴스를 자동 생성해서 스탬프를 적립할 수 있습니다.
-            raw_value = (self.initial_data or {}).get("receipt")
-            if raw_value == "superhyunhan":
-                receipt, _ = Receipt.objects.get_or_create(receipt_number=raw_value)
-                attrs["receipt"] = receipt
-            else:
+        # 1. 영수증 번호가 비어있는지 / 테스트 번호인지 / 실제 등록번호인지 확인합니다.
+        if not raw_value:
+            raise serializers.ValidationError("DB에 등록되지 않은 영수증 번호입니다.")
+
+        if raw_value == "superhyunhan":
+            # MVP 단계: superhyunhan 이라는 번호는 항상 허용하고,
+            # Receipt가 없으면 자동 생성합니다.
+            receipt, _ = Receipt.objects.get_or_create(receipt_number=raw_value)
+        else:
+            # 그 외 번호는 실제 DB에 Receipt 가 존재해야 합니다.
+            try:
+                receipt = Receipt.objects.get(pk=raw_value)
+            except Receipt.DoesNotExist:
                 raise serializers.ValidationError("DB에 등록되지 않은 영수증 번호입니다.")
-        
+
+        attrs["receipt"] = receipt
+
         # 2. 영수증 번호에 해당하는 스탬프가 이미 등록되어 있는지 확인합니다.
         if hasattr(receipt, "stamp"):
             raise serializers.ValidationError("이미 스탬프가 발급된 영수증 번호입니다.")
