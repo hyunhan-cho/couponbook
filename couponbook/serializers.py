@@ -60,8 +60,15 @@ class StampCreateRequestSerializer(serializers.ModelSerializer):
         if raw_value == "superhyunhan":
             # MVP 단계: superhyunhan 번호는 호출할 때마다 새로운 Receipt를 생성해서
             # 같은 번호를 여러 번 입력해도 스탬프가 계속 쌓이도록 합니다.
+            # receipt_number 필드 max_length=30 을 초과하지 않도록 uuid를 잘라냅니다.
+            max_len = Receipt._meta.get_field("receipt_number").max_length
+            base_prefix = "superhyunhan"  # 길이 12
+            # 형식: superhyunhan-<랜덤>
+            remaining = max_len - (len(base_prefix) + 1)  # 1 for hyphen
+            random_segment = uuid4().hex[:remaining]
+            receipt_number = f"{base_prefix}-{random_segment}"
             receipt = Receipt.objects.create(
-                receipt_number=f"superhyunhan-{uuid4().hex}"
+                receipt_number=receipt_number
             )
         else:
             # 그 외 번호는 실제 DB에 Receipt 가 존재해야 합니다.

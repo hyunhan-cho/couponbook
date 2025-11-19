@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from django.conf import settings
 
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, serializers
 from drf_spectacular.types import OpenApiTypes
@@ -89,6 +90,8 @@ class LocationListAPIView(APIView):
     - 전체 구조: { 시도: { 시군구: [읍/면/동, ...] } }
     - 쿼리 파라미터로 부분 조회 지원
     """
+
+    permission_classes = [AllowAny]
 
     def get(self, request):
         data = _load_locations()
