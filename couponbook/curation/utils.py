@@ -4,9 +4,7 @@ from json import dumps, loads
 from accounts.models import User
 from couponbook.models import *
 from decouple import config
-from google import genai
-from google.genai import types
-from pydantic import BaseModel
+from openai import OpenAI
 
 from .serializers import CouponTemplateDictSerializer
 
@@ -127,94 +125,75 @@ class UserStatistics:
             history.append(coupon_dict)
         return history
 
-class ResponseStructure(BaseModel):
-    coupon_template_ids: list[int]
-
 class AICurator:
     """
-    제미나이를 이용하여 쿠폰 큐레이션 기능을 제공하는 큐레이터 객체입니다.
+    OpenAI를 이용하여 쿠폰 큐레이션 기능을 제공하는 큐레이터 객체입니다.
     """
 
-    def __init__(self, gemini_api_key: str=''):
+    def __init__(self, openai_api_key: str = ""):
         """
-        제미나이 API 키를 인자로 받습니다. 입력하지 않거나, 빈 문자열이면 .env의 GEMINI_API_KEY 값을 사용합니다.
-        """
-
-        self.api_key = gemini_api_key or config('GEMINI_API_KEY')
-
-    def initialize_client(self):
-        """
-        클라이언트 인스턴스를 생성합니다.
+        OpenAI API 키를 인자로 받습니다. 입력하지 않거나, 빈 문자열이면 .env의 OPENAI_API_KEY 값을 사용합니다.
         """
 
-        api_key = self.api_key
-        self.client = genai.Client(api_key=api_key)
+        # OPENAI_API_KEY를 .env에서 읽습니다. (없는 경우 빈 문자열)
+        self.api_key = openai_api_key or config("OPENAI_API_KEY", default="")
+        self.client: OpenAI | None = None
+        if self.api_key:
+            # 키가 없는 경우에도 서버가 죽지 않도록, 없는 경우에는 client를 생성하지 않습니다.
+            self.client = OpenAI(api_key=self.api_key)
 
-    def generate_example(self, input_data, output_data=""):
+    def _build_prompt(self, statistics: UserStatistics, coupon_templates) -> str:
         """
-        입력 데이터와 출력 데이터를 받아 예시 컨텐츠를 생성합니다. 출력 데이터는 선택적 인자이며, 전달하지 않으면 빈 문자열로 지정됩니다. (예시가 아닌 경우 활용)
-        """
-
-        PROMPT_STRING: str = """입력:
-        {0}
-        출력: {1}"""
-        return PROMPT_STRING.format(input_data, output_data)
-    
-    def generate_curation_contents(self, statistics: UserStatistics, coupon_templates) -> dict:
-        """
-        큐레이션을 위한 지시사항과 프롬프트를 생성하여 config와 contents를 딕셔너리로 반환합니다.
+        유저 통계와 쿠폰 템플릿 정보를 JSON 형태의 문자열로 만들어 프롬프트에 사용합니다.
         """
 
-        INSTRUCTION = "너는 지금부터 개인의 취향을 분석하고, 이를 토대로 주변의 음식점을 추천해주는 비서야."
-        INPUT_STRUCTURE_MD = """-입력
-            - `user_statistics`: 유저가 방문한 음식점 정보와 해당 음식점에서 스탬프를 찍은 기록
-            - `coupon_templates`: 현재 서비스에서 게시중인 등록 가능한 쿠폰 목록
-        - 출력
-            - `coupon_template_ids`: 추천하는 `coupon_template`의 id 배열
-        """
-        # EXAMPLE_HISTORY: dict = get_example_statistics().make_history()
-        # example_history_json: str = dumps(EXAMPLE_HISTORY, ensure_ascii=False)
-        # EXAMPLE_PROMPT: str = self.generate_example(example_history_json, "[{id: 1}]")
-
-        statistics_history: str = statistics.make_history()
+        statistics_history = statistics.make_history()
         input_data_dict = {
-            'user_statistics': statistics_history, 
-            'coupon_templates': CouponTemplateDictSerializer(coupon_templates, many=True).data
+            "user_statistics": statistics_history,
+            "coupon_templates": CouponTemplateDictSerializer(coupon_templates, many=True).data,
         }
+        return dumps(input_data_dict, ensure_ascii=False)
 
-        input_prompt: str = self.generate_example(dumps(input_data_dict, ensure_ascii=False))
-        config = types.GenerateContentConfig(system_instruction=INSTRUCTION, response_mime_type='application/json', response_schema=ResponseStructure)
-        contents = [
-            types.Content(
-                role='user', parts=[
-                    types.Part(text="다음은 작업의 입력 사항과 필요한 출력 사항에 대한 구조의 개요야."),
-                    types.Part(text=INPUT_STRUCTURE_MD),
-                    types.Part(text="다음은 위의 구조를 따르는 작업이야. coupon_template들 중에 "\
-                               "추천하는 coupon_template의 id 3개를 배열 형태로 출력해줘. "\
-                               "만약, coupon_template이 3개 이하라면 모든 coupon_template의 id를 출력해."),
-                    types.Part(text=input_prompt),
-                ]
-            )
-        ]
-
-        return {'config': config, 'contents': contents}
-    
-    def generate_response(self, curation_contents):
-        response = self.client.models.generate_content(
-            model='gemini-2.5-flash',
-            **curation_contents
-        )
-
-        return response
-    
     def curate(self, statistics: UserStatistics, coupon_templates) -> list[int]:
         """
         쿠폰 큐레이션을 실행합니다. 큐레이션 결과로 추천하는 쿠폰의 id 리스트가 반환됩니다.
         """
-        
-        if not hasattr(self, 'client'):
-            self.initialize_client()
-        curation_contents = self.generate_curation_contents(statistics, coupon_templates)
-        response = self.generate_response(curation_contents)
-        coupon_template_ids = loads(response.text)['coupon_template_ids']
-        return coupon_template_ids
+
+        # OpenAI 클라이언트가 없으면(키가 없거나 설정 안 됨) 단순 fallback: 상위 3개 추천
+        if not self.client:
+            return list(coupon_templates.values_list("id", flat=True)[:3])
+
+        prompt_json = self._build_prompt(statistics, coupon_templates)
+
+        system_message = (
+            "너는 개인의 취향을 분석하고, 이를 토대로 주변의 음식점을 추천해주는 비서야. "
+            "응답은 반드시 JSON 형식으로만 반환해. 형식: "
+            '{"coupon_template_ids":[정수,...]}'
+        )
+        user_message = (
+            "다음은 유저의 쿠폰 이용 내역과 현재 게시중인 쿠폰 템플릿 목록이야.\n"
+            "이 정보를 보고 추천할 coupon_template의 id 3개를 배열 형태로 골라줘. "
+            "만약 coupon_template이 3개 이하라면 모든 coupon_template의 id를 그대로 반환해.\n"
+            "입력(JSON):\n"
+            f"{prompt_json}\n\n"
+            '출력은 예시처럼 JSON으로만: {"coupon_template_ids":[1,2,3]}'
+        )
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.2,
+            )
+            content = response.choices[0].message.content
+            # content가 문자열이라고 가정하고 JSON 파싱
+            data = loads(content)
+            ids = data.get("coupon_template_ids", [])
+            # 정수 리스트만 반환하도록 방어 코드
+            return [int(i) for i in ids][:3]
+        except Exception:
+            # OpenAI 호출 실패 시에도 서버가 500으로 터지지 않도록 안전한 fallback
+            return list(coupon_templates.values_list("id", flat=True)[:3])

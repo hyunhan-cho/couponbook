@@ -31,3 +31,6 @@ django-filter>=24.0
 # PostgreSQL driver for Supabase
 psycopg2-binary>=2.9
 google-genai>=1.29.0
+
+# OpenAI API (AI 큐레이션용)
+openai>=1.0.0
