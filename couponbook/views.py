@@ -13,9 +13,11 @@ from rest_framework.generics import (CreateAPIView, DestroyAPIView,
                                      RetrieveAPIView, RetrieveDestroyAPIView)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .curation.utils import AICurator, UserStatistics
+from .chat_assistant import CouponbookAssistant
 from .filters import CouponFilter, CouponTemplateFilter
 from .models import *
 from .models import CouponTemplate
@@ -432,3 +434,138 @@ class StampListView(CreateAPIView):
         """
 
         return serializer.save()
+
+
+# -------------------------------- AI 챗봇 ---------------------------------
+@extend_schema_view(
+    post=extend_schema(
+        tags=["AI_Chat"],
+        description="쿠폰북 AI 어시스턴트와 대화합니다. 사용자의 쿠폰 정보, 주변 가게 등을 기반으로 답변을 제공합니다.",
+        summary="AI 어시스턴트 챗봇",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "사용자의 질문/메시지",
+                        "example": "내 쿠폰 몇 개야?"
+                    },
+                    "conversation_history": {
+                        "type": "array",
+                        "description": "이전 대화 기록 (선택)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "role": {"type": "string", "enum": ["user", "assistant"]},
+                                "content": {"type": "string"}
+                            }
+                        }
+                    }
+                },
+                "required": ["message"]
+            }
+        },
+        responses={
+            200: {
+                "description": "AI 응답",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "response": "현재 3개의 쿠폰을 보유하고 있어! 스타벅스, 맘스터치, 올리브영 쿠폰이야 ☕",
+                            "context_used": True,
+                            "suggestions": [
+                                "스탬프 많이 모은 쿠폰 알려줘",
+                                "근처 카페 추천해줘"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        examples=[
+            OpenApiExample(
+                "기본 질문",
+                value={"message": "내 쿠폰 몇 개야?"},
+                request_only=True
+            ),
+            OpenApiExample(
+                "추천 요청",
+                value={"message": "근처 맛집 추천해줘"},
+                request_only=True
+            ),
+            OpenApiExample(
+                "사용법 질문",
+                value={"message": "스탬프 적립은 어떻게 해?"},
+                request_only=True
+            )
+        ]
+    ),
+    get=extend_schema(
+        tags=["AI_Chat"],
+        description="AI 어시스턴트와 대화할 수 있는 질문 예시를 가져옵니다.",
+        summary="추천 질문 목록",
+        responses={
+            200: {
+                "description": "질문 예시 목록",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "suggestions": [
+                                "내가 가진 쿠폰 보여줘",
+                                "내 쿠폰 몇 개야?",
+                                "스탬프 많이 모은 쿠폰 알려줘",
+                                "근처 카페 추천해줘"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    )
+)
+class ChatAssistantView(APIView):
+    """
+    AI 어시스턴트 챗봇 뷰입니다.
+    사용자의 질문에 쿠폰북 정보를 기반으로 답변합니다.
+    """
+    
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        사용자의 메시지를 받아 AI 어시스턴트의 응답을 반환합니다.
+        """
+        user_message = request.data.get('message', '').strip()
+        
+        if not user_message:
+            return Response(
+                {"error": "message 필드가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 대화 히스토리 (선택)
+        conversation_history = request.data.get('conversation_history', [])
+
+        # AI 어시스턴트 생성 및 응답
+        assistant = CouponbookAssistant(user=request.user)
+        result = assistant.chat(user_message, conversation_history)
+
+        # 추천 질문도 함께 반환
+        suggestions = assistant.get_quick_suggestions()
+        result['suggestions'] = suggestions
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    def get(self, request):
+        """
+        사용자가 물어볼 만한 질문 예시를 반환합니다.
+        """
+        assistant = CouponbookAssistant(user=request.user)
+        suggestions = assistant.get_quick_suggestions()
+        
+        return Response(
+            {"suggestions": suggestions},
+            status=status.HTTP_200_OK
+        )

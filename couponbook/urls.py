@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .views import (CouponBookDetailView, CouponDetailView, CouponListView,
+from .views import (ChatAssistantView, CouponBookDetailView,
+                    CouponDetailView, CouponListView,
                     CouponTemplateCurationView, CouponTemplateDetailView,
                     CouponTemplateListView, FavoriteCouponDetailView,
                     FavoriteCouponListView, StampListView)
@@ -20,4 +21,7 @@ urlpatterns = [
     # 쿠폰 템플릿 관련 엔드포인트입니다.
     path('coupon-templates/', CouponTemplateListView.as_view(), name='coupon-template-list'),
     path('coupon-templates/<int:coupon_template_id>/', CouponTemplateDetailView.as_view(), name='coupon-template-detail'),
+    
+    # AI 어시스턴트 챗봇
+    path('chat/', ChatAssistantView.as_view(), name='chat-assistant'),
 ]
