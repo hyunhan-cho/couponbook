@@ -166,7 +166,13 @@ class CouponDetailView(RetrieveDestroyAPIView):
 
     serializer_class = CouponDetailResponseSerializer
     authentication_classes = [JWTAuthentication]
+    # 삭제는 소유자만, 조회(GET)는 로그인 사용자 누구나 허용하도록 동적 권한 분기
     permission_classes = [IsMyCoupon]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsMyCoupon()]
 
     queryset = Coupon.objects.all()
     lookup_url_kwarg = 'coupon_id'
